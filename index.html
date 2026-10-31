@@ -221,7 +221,7 @@ const HUBS = [
 const ROAD_K = 1.5;
 const $ = id => document.getElementById(id);
 let site = "harbor";
-let approvals = {co:null, s1:null, s3:null, su:null};
+let approvals = {co:null, s1:null, s3:null, su:null, xo:null};
 let fromLink = false;
 
 function hav(a,b){const R=6371.0088,r=Math.PI/180;const dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r;
@@ -263,7 +263,7 @@ function compute(){
   return {S,s,e,days,nights,fullDays,flDays,zip,est,dts,oneWay,rt,lodging,mieFL,mieFull,perDiem,mileage,parking,scrubs,other,total,template,cmdRt,diff};
 }
 
-const APPR = [["co","Company CO"],["s1","S-1 OIC"],["s3","S-3 Ops"],["su","Supply Officer"]];
+const APPR = [["co","Company CO"],["s1","S-1 OIC"],["s3","S-3 Ops"],["su","Supply Officer"],["xo","XO"]];
 function render(){
   const c = compute();
   $("example").hidden = fromLink;
@@ -309,14 +309,13 @@ function render(){
   const ap = $("appr"); ap.innerHTML = "";
   const row = (who, cls, text) => { const li=document.createElement("li"); const w=document.createElement("span"); w.className="who"; w.textContent=who; const s=document.createElement("span"); s.className="chip "+cls; s.textContent=text; li.append(w,s); ap.append(li); };
   for (const [k,label] of APPR){ const d = approvals[k]; row(label, d ? "ok" : "pend", d ? "Cohort approved (digital) "+mil(d) : "Pending cohort approval"); }
-  row("XO", "sign", "Signs on the form (digital or print)");
 
   const notes = [
     "Rates: GSA FY2027 per diem, Los Angeles locality (includes Orange County): lodging "+money(RATES.lodging)+", M&IE "+money(RATES.mie)+". POV "+money(RATES.pov)+"/mi (DoD CY2026, eff. 1 Jul 2026). First and last day M&IE at 75% (JTR 020310).",
     "Lodging taxes are reimbursed from the hotel folio and are not included.",
     "Vouchers are paid on official DTS mileage. Enter DTS miles above to match exactly.",
   ];
-  if (!approvals.co || !approvals.s1 || !approvals.s3 || !approvals.su) notes.unshift("Approvals still pending print as blank lines. Re-open your rotation link after the cohort is approved to print them as approved.");
+  if (!approvals.co || !approvals.s1 || !approvals.s3 || !approvals.su || !approvals.xo) notes.unshift("Approvals still pending print as blank lines. Re-open your rotation link after the cohort is approved to print them as approved.");
   if (site==="harbor") notes.push("Harbor-UCLA: book the DoubleTree Carson only after your DTS authorization is approved. The hotel link expires 30 days before the stay.");
   if (c.days && (c.s < parseD(RATES.fyStart) || c.e > parseD(RATES.fyEnd))) notes.unshift("These dates fall outside FY2027. Rates may differ; confirm in DTS.");
   $("notes").innerHTML=""; for (const n of notes){ const li=document.createElement("li"); li.textContent=n; $("notes").append(li); }
@@ -329,12 +328,12 @@ for (const id of ["start","end","rank","name","nec","section","phone","zip","dts
 // Link from the rotation tracker: #harbor-20270103-20270112[-s1-20261115][-s3-20261116][-su-20261117]
 function fromHash(){
   const h = (location.hash||"").slice(1);
-  const m = h.match(/^(harbor|uci)-(\d{8})-(\d{8})((?:-(?:co|s1|s3|su)-\d{8})*)$/);
+  const m = h.match(/^(harbor|uci)-(\d{8})-(\d{8})((?:-(?:co|s1|s3|su|xo)-\d{8})*)$/);
   if (!m) return false;
   const iso = t => t.slice(0,4)+"-"+t.slice(4,6)+"-"+t.slice(6,8);
   site = m[1]; $("start").value = iso(m[2]); $("end").value = iso(m[3]);
-  approvals = {co:null, s1:null, s3:null, su:null};
-  for (const a of (m[4]||"").matchAll(/-(co|s1|s3|su)-(\d{8})/g)) approvals[a[1]] = fromYmd(a[2]);
+  approvals = {co:null, s1:null, s3:null, su:null, xo:null};
+  for (const a of (m[4]||"").matchAll(/-(co|s1|s3|su|xo)-(\d{8})/g)) approvals[a[1]] = fromYmd(a[2]);
   fromLink = true; return true;
 }
 if (!fromHash()){ $("start").value="2027-01-10"; $("end").value="2027-01-16"; }
@@ -355,7 +354,7 @@ function formData(){
   if (c.scrubs) cost.cost_3_4 = "Scrubs: "+plain(c.scrubs);
   const marks = ["fund_bn","pov_gov","q_hotel","mess_none","ex_no","park_no","fee_no","i_train"];
   const notes = {};
-  const keyMap = {co:"co", s1:"s1", s3:"s3", su:"supply"};
+  const keyMap = {co:"co", s1:"s1", s3:"s3", su:"supply", xo:"xo"};
   for (const [k] of APPR){ if (approvals[k]){ marks.push(keyMap[k]+"_appr"); notes[keyMap[k]+"_note"] = "COHORT APPROVED (DIGITAL) "+mil(approvals[k]); } }
   const footer = [
     "Battalion template ("+c.S.short+", "+c.days+" days, mileage from Mainside "+c.cmdRt+" mi RT): $"+plain(c.template)+". Difference "+(c.diff>=0?"+":"-")+"$"+plain(Math.abs(c.diff))+". "+(Math.abs(c.diff)<=15?"Within $15: no further review (Bn SOP para 4).":"More than $15: approving-authority review (Bn SOP para 4)."),
@@ -401,7 +400,7 @@ $("save").addEventListener("click", async ()=>{
     const url = URL.createObjectURL(new Blob([bytes], {type:"application/pdf"}));
     const a = document.createElement("a"); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 10000);
-    $("msg").textContent = "Saved. Sign as traveler, route to the XO for signature (digital or print), then attach it in DTS.";
+    $("msg").textContent = "Saved. Sign as traveler and attach it in DTS. If any approval shows pending, wait for the cohort approval and reopen your link.";
   } catch(err){
     $("msg").textContent = (err && err.message==="template" ? "The blank form did not load. Reload the page and try again." : "PDF build failed. Use Copy as text, or try another browser.");
   }
