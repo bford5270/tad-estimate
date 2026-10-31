@@ -358,7 +358,8 @@ function formData(){
   for (const [k] of APPR){ if (approvals[k]){ marks.push(keyMap[k]+"_appr"); notes[keyMap[k]+"_note"] = "COHORT APPROVED (DIGITAL) "+mil(approvals[k]); } }
   const footer = [
     "Battalion template ("+c.S.short+", "+c.days+" days, mileage from Mainside "+c.cmdRt+" mi RT): $"+plain(c.template)+". Difference "+(c.diff>=0?"+":"-")+"$"+plain(Math.abs(c.diff))+". "+(Math.abs(c.diff)<=15?"Within $15: no further review (Bn SOP para 4).":"More than $15: approving-authority review (Bn SOP para 4)."),
-    "Rates: GSA FY2027 Los Angeles locality lodging $199, M&IE $86 (first/last day 75%, JTR 020310); POV $0.76/mi (DoD CY2026). Lodging taxes per folio, not included. Mileage "+(c.dts?"from DTS.":"estimated from ZIP "+(c.zip||"-")+".")
+    "Rates: GSA FY2027 Los Angeles locality lodging $199, M&IE $86 (first/last day 75%, JTR 020310); POV $0.76/mi (DoD CY2026). Lodging taxes per folio, not included. Mileage "+(c.dts?"from DTS.":"estimated from ZIP "+(c.zip||"-")+"."),
+    "Digital approvals are recorded in the 1st Med Bn rotation tracker. S-1/TAD clerk: verify the traveler is on the approved cohort roster before routing."
   ];
   return {c, d:{
     name:$("name").value.trim(), rank:$("rank").value.trim(), purpose:"CLINICAL SUSTAINMENT - "+c.S.short.toUpperCase(),
