@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Rotation Cost Estimate</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: inputs panel beside a paper-like summary of the TAD request; stacks to one column on phones. */
+:root{
+  --bg:#eef0ec; --panel:#ffffff; --sheet:#fffffd; --ink:#1d2421; --muted:#5d6862; --rule:#c9cfc9;
+  --accent:#2f4a3a; --accent-ink:#ffffff; --ok:#1f6b3a; --ok-bg:#e3f1e7; --warn:#8a5a00; --warn-bg:#fbf0d9;
+  --field:#f7f8f6;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141917; --panel:#1c2320; --sheet:#202825; --ink:#e6ebe7; --muted:#9ba7a0; --rule:#38433e;
+  --accent:#8fb79c; --accent-ink:#10160f; --ok:#8fd3a5; --ok-bg:#1d3326; --warn:#f0c46a; --warn-bg:#3a2f17; --field:#252e2a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --panel:#1c2320; --sheet:#202825; --ink:#e6ebe7; --muted:#9ba7a0; --rule:#38433e;
+  --accent:#8fb79c; --accent-ink:#10160f; --ok:#8fd3a5; --ok-bg:#1d3326; --warn:#f0c46a; --warn-bg:#3a2f17; --field:#252e2a; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;margin-bottom:16px}
+h1{font-family:var(--display);font-weight:700;font-size:2rem;letter-spacing:.02em;text-transform:uppercase;margin:0;text-wrap:balance}
+.unit{color:var(--muted);font-size:.85rem;letter-spacing:.06em;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:18px;display:grid;gap:14px}
+.panel h2,.sheet h2{font-family:var(--display);font-weight:600;font-size:1.05rem;letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--accent)}
+label{display:grid;gap:4px;font-size:.82rem;font-weight:500;color:var(--muted);letter-spacing:.02em}
+input,select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--field);border:1px solid var(--rule);border-radius:4px;padding:8px 10px;min-width:0;width:100%;box-sizing:border-box}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:.78rem;color:var(--muted);margin:0}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1 1 0;font:inherit;font-size:.88rem;font-weight:600;padding:9px 10px;border-radius:4px;border:1px solid var(--rule);background:var(--field);color:var(--ink);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.mileage-out{font-family:var(--mono);font-size:.85rem;background:var(--field);border:1px dashed var(--rule);border-radius:4px;padding:8px 10px}
+details{border-top:1px solid var(--rule);padding-top:10px}
+summary{cursor:pointer;font-family:var(--display);font-weight:600;font-size:1.05rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+details[open] summary{margin-bottom:10px}
+details .inner{display:grid;gap:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:inherit;font-weight:600;font-size:.9rem;padding:10px 14px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.secondary{background:transparent;color:var(--accent)}
+.status-msg{font-size:.82rem;color:var(--muted);min-height:1.2em;margin:0}
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:2px;padding:22px 24px;display:grid;gap:16px;box-shadow:0 1px 0 var(--rule)}
+.sheet-head{display:grid;gap:2px;border-bottom:2px solid var(--ink);padding-bottom:10px}
+.sheet-head .t{font-family:var(--display);font-weight:700;font-size:1.45rem;letter-spacing:.04em;text-transform:uppercase}
+.sheet-head .s{font-size:.8rem;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 18px;margin:0}
+.kv div{display:grid;gap:1px;min-width:0}
+.kv dt{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.kv dd{margin:0;font-weight:500;overflow-wrap:anywhere}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem;min-width:420px}
+th{text-align:left;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:1px solid var(--rule);padding:6px 6px}
+td{padding:8px 6px;border-bottom:1px solid var(--rule);vertical-align:top}
+td.amt,th.amt{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.basis{font-family:var(--mono);font-size:.82rem;color:var(--muted)}
+tr.total td{border-top:2px solid var(--ink);border-bottom:none;font-weight:600;font-size:1rem}
+.check{border-radius:4px;padding:10px 12px;font-size:.88rem;display:grid;gap:2px}
+.check.ok{background:var(--ok-bg);color:var(--ok)}
+.check.warn{background:var(--warn-bg);color:var(--warn)}
+.check b{font-weight:600}
+.appr{display:grid;gap:0;margin:0;padding:0;list-style:none}
+.appr li{display:grid;grid-template-columns:150px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid var(--rule);font-size:.9rem}
+.appr .who{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);align-self:center}
+.chip{justify-self:start;font-size:.78rem;font-weight:600;padding:2px 8px;border-radius:999px}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.chip.pend{background:var(--warn-bg);color:var(--warn)}
+.chip.sign{background:var(--field);color:var(--muted);border:1px solid var(--rule)}
+.notes{font-size:.78rem;color:var(--muted);display:grid;gap:4px;margin:0;padding-left:1.1em}
+.example{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--warn)}
+@media (prefers-reduced-motion:no-preference){.seg button,.btn{transition:background-color .15s,color .15s}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Rotation Cost Estimate</h1>
+    <span class="unit">1st Medical Battalion · 1st MLG · Camp Pendleton</span>
+  </header>
+
+  <div class="grid">
+    <form class="panel" id="f" autocomplete="off">
+      <h2>Rotation</h2>
+      <div>
+        <span class="hint" id="site-label" style="display:block;margin-bottom:4px;font-weight:500">Site</span>
+        <div class="seg" role="group" aria-labelledby="site-label">
+          <button type="button" id="site-harbor" data-site="harbor" aria-pressed="true">Harbor-UCLA</button>
+          <button type="button" id="site-uci" data-site="uci" aria-pressed="false">UC Irvine</button>
+        </div>
+      </div>
+      <div class="row2">
+        <label for="start">Depart date<input type="date" id="start"></label>
+        <label for="end">Return date<input type="date" id="end"></label>
+      </div>
+      <p class="hint" id="datesrc"></p>
+
+      <h2>Traveler</h2>
+      <div class="row2">
+        <label for="name">Last, First MI<input id="name" placeholder="Doe, Jane A"></label>
+        <label for="rank">Rank/rate<input id="rank" placeholder="O3/ LT"></label>
+      </div>
+      <div class="row2">
+        <label for="nec">NEC/MOS<input id="nec" placeholder="1945"></label>
+        <label for="section">Section<input id="section" placeholder="Charlie Co"></label>
+      </div>
+      <label for="phone">Telephone #<input id="phone" inputmode="tel" placeholder="Your work number"></label>
+
+      <h2>Mileage</h2>
+      <label for="zip">Departing from ZIP<input id="zip" inputmode="numeric" maxlength="5" placeholder="92055"></label>
+      <div class="mileage-out" id="mileout" aria-live="polite"></div>
+      <label for="dtsmiles">DTS one-way miles (optional)<input id="dtsmiles" inputmode="decimal" placeholder="Leave blank to use the estimate"></label>
+      <p class="hint">DTS calculates official mileage when you enter both ZIPs (go-by step 7). Enter it here to match DTS exactly. 92055 uses the battalion's distance from Mainside.</p>
+
+      <h2>Other fees</h2>
+      <div class="row2">
+        <label for="parking">Parking ($)<input id="parking" inputmode="decimal" placeholder="0.00"></label>
+        <label for="scrubs">Scrubs, max 2 sets ($)<input id="scrubs" inputmode="decimal" placeholder="0.00"></label>
+      </div>
+
+      <details id="pii">
+        <summary>EDIPI, DOB, GTCC (optional)</summary>
+        <div class="inner">
+          <p class="hint">These go only into the PDF on your device. This page does not save or send them. Leave blank to fill in by hand.</p>
+          <label for="edipi">Full EDIPI<input id="edipi" inputmode="numeric" maxlength="10"></label>
+          <div class="row2">
+            <label for="dob">Date of birth<input id="dob" placeholder="DDMMMYYYY"></label>
+            <label for="gtcc">GTCC exp. date<input id="gtcc" placeholder="MM/YYYY"></label>
+          </div>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button class="btn" type="button" id="save">Generate TAD request (PDF)</button>
+        <button class="btn secondary" type="button" id="copy">Copy as text</button>
+      </div>
+      <p class="status-msg" id="msg" role="status"></p>
+    </form>
+
+    <section class="sheet" id="sheet" aria-label="Cost estimate">
+      <div class="sheet-head">
+        <span class="t">Request for TAD · Cost Estimate</span>
+        <span class="s">Fills the 1st Med Bn Request for Temporary Additional Duty (updated 08 MAR 2024)</span>
+        <span class="example" id="example" hidden>Example values. Use the link from your rotation email for your dates and approvals.</span>
+      </div>
+      <dl class="kv" id="kv"></dl>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Basis</th><th class="amt">Amount</th></tr></thead>
+          <tbody id="lines"></tbody>
+        </table>
+      </div>
+      <div class="check" id="check"></div>
+      <div>
+        <h2>Approvals</h2>
+        <ul class="appr" id="appr"></ul>
+      </div>
+      <ul class="notes" id="notes"></ul>
+    </section>
+  </div>
+</div>
+
+<script src="pdf-lib.min.js"></script>
+<script>
+const ZIPS = {"90001":[33.9731,-118.2479,"Los Angeles"],"90002":[33.9497,-118.2462,"Los Angeles"],"90003":[33.9653,-118.2727,"Los Angeles"],"90004":[34.0762,-118.3029,"Los Angeles"],"90005":[34.0585,-118.3012,"Los Angeles"],"90006":[34.0493,-118.2917,"Los Angeles"],"90007":[34.0294,-118.2871,"Los Angeles"],"90008":[34.0116,-118.3411,"Los Angeles"],"90010":[34.0606,-118.3027,"Los Angeles"],"90011":[34.0079,-118.2582,"Los Angeles"],"90012":[34.0614,-118.2385,"Los Angeles"],"90013":[34.0448,-118.2434,"Los Angeles"],"90014":[34.0443,-118.2509,"Los Angeles"],"90015":[34.0434,-118.2716,"Los Angeles"],"90016":[34.0298,-118.3528,"Los Angeles"],"90017":[34.0559,-118.2666,"Los Angeles"],"90018":[34.029,-118.3152,"Los Angeles"],"90019":[34.0482,-118.3343,"Los Angeles"],"90020":[34.0665,-118.3022,"Los Angeles"],"90021":[34.0333,-118.2447,"Los Angeles"],"90022":[34.0245,-118.1561,"Los Angeles"],"90023":[34.0245,-118.1975,"Los Angeles"],"90024":[34.0637,-118.4408,"Los Angeles"],"90025":[34.0447,-118.4487,"Los Angeles"],"90026":[34.0766,-118.2646,"Los Angeles"],"90027":[34.104,-118.2925,"Los Angeles"],"90028":[34.1005,-118.3254,"Los Angeles"],"90029":[34.09,-118.2944,"Los Angeles"],"90031":[34.0783,-118.2113,"Los Angeles"],"90032":[34.0818,-118.1753,"Los Angeles"],"90033":[34.0487,-118.2084,"Los Angeles"],"90034":[34.029,-118.4005,"Los Angeles"],"90035":[34.0531,-118.3806,"Los Angeles"],"90036":[34.0699,-118.3492,"Los Angeles"],"90037":[34.003,-118.2863,"Los Angeles"],"90038":[34.0898,-118.3215,"Los Angeles"],"90039":[34.1121,-118.2594,"Los Angeles"],"90040":[33.9909,-118.1532,"Los Angeles"],"90041":[34.1339,-118.2082,"Los Angeles"],"90042":[34.1145,-118.1929,"Los Angeles"],"90043":[33.9871,-118.3321,"Los Angeles"],"90044":[33.9551,-118.2901,"Los Angeles"],"90045":[33.9631,-118.3941,"Los Angeles"],"90046":[34.1074,-118.3652,"Los Angeles"],"90047":[33.9569,-118.3073,"Los Angeles"],"90048":[34.0737,-118.372,"Los Angeles"],"90049":[34.066,-118.474,"Los Angeles"],"90056":[33.9853,-118.3707,"Los Angeles"],"90057":[34.0622,-118.2763,"Los Angeles"],"90058":[33.9994,-118.2133,"Los Angeles"],"90059":[33.9293,-118.2463,"Los Angeles"],"90061":[33.9245,-118.2716,"Los Angeles"],"90062":[34.0032,-118.3073,"Los Angeles"],"90063":[34.0451,-118.1859,"Los Angeles"],"90064":[34.0353,-118.4259,"Los Angeles"],"90065":[34.1073,-118.2266,"Los Angeles"],"90066":[34.003,-118.4298,"Los Angeles"],"90067":[34.0551,-118.4095,"Los Angeles"],"90068":[34.1156,-118.3305,"Los Angeles"],"90069":[34.0906,-118.3788,"West Hollywood"],"90071":[34.0529,-118.2549,"Los Angeles"],"90077":[34.1112,-118.4502,"Los Angeles"],"90079":[33.7866,-118.2987,"Los Angeles"],"90094":[33.9728,-118.4276,"Playa Vista"],"90101":[33.99,-118.16,"Los Angeles"],"90134":[34.0522,-118.2437,"Los Angeles"],"90201":[33.9653,-118.1515,"Bell Gardens"],"90210":[34.0901,-118.4065,"Beverly Hills"],"90211":[34.0652,-118.383,"Beverly Hills"],"90212":[34.0619,-118.3995,"Beverly Hills"],"90220":[33.8748,-118.2402,"Compton"],"90221":[33.8796,-118.2168,"Compton"],"90222":[33.9099,-118.2357,"Compton"],"90230":[33.9949,-118.3991,"Culver City"],"90232":[34.0168,-118.3973,"Culver City"],"90240":[33.9581,-118.1174,"Downey"],"90241":[33.9416,-118.1306,"Downey"],"90242":[33.9218,-118.1395,"Downey"],"90245":[33.9243,-118.4119,"El Segundo"],"90247":[33.8925,-118.2961,"Gardena"],"90248":[33.8766,-118.2835,"Gardena"],"90249":[33.8998,-118.3199,"Gardena"],"90250":[33.9143,-118.3493,"Hawthorne"],"90254":[33.8643,-118.3955,"Hermosa Beach"],"90255":[33.9769,-118.2161,"Huntington Park"],"90260":[33.8879,-118.351,"Lawndale"],"90261":[33.8872,-118.3526,"Lawndale"],"90262":[33.9241,-118.2013,"Lynwood"],"90265":[34.0402,-118.7351,"Malibu"],"90266":[33.8896,-118.3996,"Manhattan Beach"],"90270":[33.989,-118.1877,"Maywood"],"90272":[34.0481,-118.5265,"Pacific Palisades"],"90274":[33.7669,-118.3806,"Palos Verdes Peninsula"],"90275":[33.7515,-118.367,"Rancho Palos Verdes"],"90277":[33.8307,-118.3832,"Redondo Beach"],"90278":[33.8707,-118.3715,"Redondo Beach"],"90280":[33.9462,-118.2013,"South Gate"],"90290":[34.1076,-118.6023,"Topanga"],"90291":[33.9938,-118.4635,"Venice"],"90292":[33.9779,-118.4525,"Marina Del Rey"],"90293":[33.9577,-118.4373,"Playa Del Rey"],"90301":[33.955,-118.3556,"Inglewood"],"90302":[33.9745,-118.3548,"Inglewood"],"90303":[33.9377,-118.3321,"Inglewood"],"90304":[33.9379,-118.3586,"Inglewood"],"90305":[33.9583,-118.3259,"Inglewood"],"90311":[33.9617,-118.3531,"Inglewood"],"90401":[34.0176,-118.4907,"Santa Monica"],"90402":[34.0349,-118.503,"Santa Monica"],"90403":[34.0287,-118.4924,"Santa Monica"],"90404":[34.0268,-118.4733,"Santa Monica"],"90405":[34.01,-118.4717,"Santa Monica"],"90501":[33.8268,-118.3118,"Torrance"],"90502":[33.8286,-118.292,"Torrance"],"90503":[33.8397,-118.3542,"Torrance"],"90504":[33.8708,-118.3295,"Torrance"],"90505":[33.8106,-118.3507,"Torrance"],"90506":[33.7866,-118.2987,"Torrance"],"90601":[34.0011,-118.0371,"Whittier"],"90602":[33.9693,-118.0337,"Whittier"],"90603":[33.9432,-117.9927,"Whittier"],"90604":[33.9299,-118.0121,"Whittier"],"90605":[33.9413,-118.0356,"Whittier"],"90606":[33.9777,-118.0658,"Whittier"],"90620":[33.8439,-118.008,"Buena Park"],"90621":[33.8772,-117.9893,"Buena Park"],"90623":[33.8491,-118.0398,"La Palma"],"90630":[33.8181,-118.0357,"Cypress"],"90631":[33.9331,-117.9493,"La Habra"],"90638":[33.9067,-118.0101,"La Mirada"],"90640":[34.0133,-118.113,"Montebello"],"90650":[33.9056,-118.0818,"Norwalk"],"90660":[33.9886,-118.0883,"Pico Rivera"],"90670":[33.9464,-118.0838,"Santa Fe Springs"],"90680":[33.7991,-117.9956,"Stanton"],"90701":[33.8654,-118.0731,"Artesia"],"90703":[33.8669,-118.0686,"Cerritos"],"90706":[33.8867,-118.1265,"Bellflower"],"90710":[33.797,-118.2991,"Harbor City"],"90712":[33.8512,-118.1457,"Lakewood"],"90713":[33.8473,-118.1115,"Lakewood"],"90715":[33.8405,-118.0767,"Lakewood"],"90716":[33.8296,-118.073,"Hawaiian Gardens"],"90717":[33.7938,-118.3172,"Lomita"],"90720":[33.7956,-118.0648,"Los Alamitos"],"90723":[33.8969,-118.1632,"Paramount"],"90731":[33.7339,-118.2914,"San Pedro"],"90732":[33.742,-118.3121,"San Pedro"],"90740":[33.7602,-118.0808,"Seal Beach"],"90744":[33.7855,-118.2645,"Wilmington"],"90745":[33.823,-118.2684,"Carson"],"90746":[33.8584,-118.2554,"Carson"],"90755":[33.8029,-118.1677,"Signal Hill"],"90802":[33.7706,-118.182,"Long Beach"],"90803":[33.7619,-118.1341,"Long Beach"],"90804":[33.7857,-118.1357,"Long Beach"],"90805":[33.8635,-118.1801,"Long Beach"],"90806":[33.8045,-118.1876,"Long Beach"],"90807":[33.8315,-118.1811,"Long Beach"],"90808":[33.8241,-118.1103,"Long Beach"],"90810":[33.8193,-118.2325,"Long Beach"],"90813":[33.782,-118.1835,"Long Beach"],"90814":[33.7716,-118.148,"Long Beach"],"90815":[33.7939,-118.1192,"Long Beach"],"90822":[33.7927,-118.1638,"Long Beach"],"90831":[33.7678,-118.1994,"Long Beach"],"90833":[33.7678,-118.1994,"Long Beach"],"90834":[33.7678,-118.1994,"Long Beach"],"90835":[33.7678,-118.1994,"Long Beach"],"91001":[34.1912,-118.1392,"Altadena"],"91006":[34.1324,-118.0264,"Arcadia"],"91007":[34.1243,-118.0515,"Arcadia"],"91008":[34.149,-117.9644,"Duarte"],"91010":[34.1407,-117.9567,"Duarte"],"91011":[34.2217,-118.2051,"La Canada Flintridge"],"91016":[34.144,-118.0014,"Monrovia"],"91020":[34.2114,-118.2305,"Montrose"],"91024":[34.1651,-118.0519,"Sierra Madre"],"91030":[34.1109,-118.1547,"South Pasadena"],"91040":[34.2618,-118.3371,"Sunland"],"91042":[34.2544,-118.2849,"Tujunga"],"91101":[34.1468,-118.1391,"Pasadena"],"91103":[34.1669,-118.1551,"Pasadena"],"91104":[34.1678,-118.1261,"Pasadena"],"91105":[34.1355,-118.1636,"Pasadena"],"91106":[34.1435,-118.1266,"Pasadena"],"91107":[34.151,-118.0889,"Pasadena"],"91108":[34.1207,-118.1117,"San Marino"],"91201":[34.1716,-118.2899,"Glendale"],"91202":[34.1652,-118.2656,"Glendale"],"91203":[34.1517,-118.2636,"Glendale"],"91204":[34.1379,-118.2599,"Glendale"],"91205":[34.1378,-118.2425,"Glendale"],"91206":[34.1556,-118.2322,"Glendale"],"91207":[34.1649,-118.2451,"Glendale"],"91208":[34.1921,-118.235,"Glendale"],"91210":[34.1425,-118.2551,"Glendale"],"91214":[34.2316,-118.2457,"La Crescenta"],"91301":[34.1227,-118.7573,"Agoura Hills"],"91302":[34.1419,-118.6641,"Calabasas"],"91303":[34.1993,-118.5983,"Canoga Park"],"91304":[34.2197,-118.6111,"Canoga Park"],"91306":[34.2092,-118.5749,"Winnetka"],"91307":[34.1963,-118.6389,"West Hills"],"91311":[34.2583,-118.5914,"Chatsworth"],"91316":[34.1655,-118.5175,"Encino"],"91320":[34.1774,-118.9358,"Newbury Park"],"91321":[34.3795,-118.523,"Newhall"],"91324":[34.2367,-118.5466,"Northridge"],"91325":[34.2353,-118.5188,"Northridge"],"91326":[34.2808,-118.5573,"Porter Ranch"],"91331":[34.2556,-118.4208,"Pacoima"],"91335":[34.2007,-118.5391,"Reseda"],"91340":[34.2875,-118.4352,"San Fernando"],"91342":[34.3054,-118.4322,"Sylmar"],"91343":[34.2366,-118.4758,"North Hills"],"91344":[34.2771,-118.4992,"Granada Hills"],"91345":[34.2619,-118.4587,"Mission Hills"],"91350":[34.4336,-118.5007,"Santa Clarita"],"91351":[34.4262,-118.449,"Canyon Country"],"91352":[34.2209,-118.3699,"Sun Valley"],"91354":[34.4466,-118.5374,"Valencia"],"91355":[34.3985,-118.5535,"Valencia"],"91356":[34.1671,-118.5414,"Tarzana"],"91360":[34.2092,-118.8739,"Thousand Oaks"],"91361":[34.1472,-118.8383,"Westlake Village"],"91362":[34.1948,-118.8232,"Thousand Oaks"],"91364":[34.1557,-118.6,"Woodland Hills"],"91367":[34.1767,-118.6159,"Woodland Hills"],"91377":[34.185,-118.7669,"Oak Park"],"91381":[34.3775,-118.6131,"Stevenson Ranch"],"91382":[34.3917,-118.5426,"Santa Clarita"],"91383":[34.3917,-118.5426,"Santa Clarita"],"91384":[34.4827,-118.6254,"Castaic"],"91387":[34.4132,-118.426,"Canyon Country"],"91390":[34.4684,-118.5261,"Santa Clarita"],"91401":[34.1802,-118.4324,"Van Nuys"],"91402":[34.2262,-118.447,"Panorama City"],"91403":[34.1514,-118.4603,"Sherman Oaks"],"91405":[34.2001,-118.4456,"Van Nuys"],"91406":[34.2006,-118.4868,"Van Nuys"],"91411":[34.1781,-118.4574,"Van Nuys"],"91423":[34.1526,-118.4322,"Sherman Oaks"],"91436":[34.151,-118.4882,"Encino"],"91501":[34.1862,-118.3009,"Burbank"],"91502":[34.1745,-118.3059,"Burbank"],"91504":[34.2001,-118.3264,"Burbank"],"91505":[34.169,-118.3442,"Burbank"],"91506":[34.1717,-118.3231,"Burbank"],"91601":[34.1687,-118.3713,"North Hollywood"],"91602":[34.151,-118.3663,"North Hollywood"],"91604":[34.143,-118.3913,"Studio City"],"91605":[34.2057,-118.4001,"North Hollywood"],"91606":[34.1872,-118.3865,"North Hollywood"],"91607":[34.1672,-118.3989,"Valley Village"],"91608":[34.1383,-118.3528,"Universal City"],"91701":[34.1376,-117.5999,"Rancho Cucamonga"],"91702":[34.1248,-117.9031,"Azusa"],"91706":[34.0964,-117.9682,"Baldwin Park"],"91708":[33.954,-117.6404,"Chino"],"91709":[33.9797,-117.7308,"Chino Hills"],"91710":[34.0125,-117.6844,"Chino"],"91711":[34.1092,-117.7183,"Claremont"],"91722":[34.0972,-117.9065,"Covina"],"91723":[34.086,-117.8843,"Covina"],"91724":[34.0938,-117.856,"Covina"],"91730":[34.107,-117.5941,"Rancho Cucamonga"],"91731":[34.0791,-118.0371,"El Monte"],"91732":[34.0705,-118.0149,"El Monte"],"91733":[34.0557,-118.0444,"South El Monte"],"91737":[34.1467,-117.5803,"Rancho Cucamonga"],"91739":[34.1705,-117.5182,"Rancho Cucamonga"],"91740":[34.1287,-117.8552,"Glendora"],"91741":[34.1537,-117.8437,"Glendora"],"91744":[34.0289,-117.9373,"La Puente"],"91745":[33.9977,-117.9652,"Hacienda Heights"],"91746":[34.0443,-117.9862,"La Puente"],"91748":[33.9818,-117.8969,"Rowland Heights"],"91750":[34.1159,-117.7708,"La Verne"],"91752":[33.9938,-117.5236,"Mira Loma"],"91754":[34.0534,-118.1271,"Monterey Park"],"91755":[34.048,-118.115,"Monterey Park"],"91758":[34.0633,-117.6509,"Ontario"],"91761":[34.0316,-117.6187,"Ontario"],"91762":[34.0584,-117.6665,"Ontario"],"91763":[34.0733,-117.6987,"Montclair"],"91764":[34.0763,-117.6254,"Ontario"],"91765":[34.0066,-117.8098,"Diamond Bar"],"91766":[34.0418,-117.7569,"Pomona"],"91767":[34.0812,-117.7362,"Pomona"],"91768":[34.0662,-117.7763,"Pomona"],"91770":[34.0658,-118.0853,"Rosemead"],"91773":[34.1023,-117.8169,"San Dimas"],"91775":[34.1155,-118.0857,"San Gabriel"],"91776":[34.089,-118.0955,"San Gabriel"],"91780":[34.1016,-118.0537,"Temple City"],"91784":[34.141,-117.6581,"Upland"],"91786":[34.1144,-117.6583,"Upland"],"91789":[34.0183,-117.8546,"Walnut"],"91790":[34.0673,-117.9366,"West Covina"],"91791":[34.0653,-117.8978,"West Covina"],"91792":[34.0229,-117.8975,"West Covina"],"91801":[34.0914,-118.1293,"Alhambra"],"91803":[34.0745,-118.1434,"Alhambra"],"91804":[34.0953,-118.127,"Alhambra"],"91901":[32.8282,-116.7543,"Alpine"],"91902":[32.6671,-117.0221,"Bonita"],"91905":[32.6719,-116.32,"Boulevard"],"91906":[32.6605,-116.4905,"Campo"],"91910":[32.6371,-117.0676,"Chula Vista"],"91911":[32.6084,-117.0565,"Chula Vista"],"91913":[32.6513,-116.9852,"Chula Vista"],"91914":[32.6587,-116.9652,"Chula Vista"],"91915":[32.6315,-116.9408,"Chula Vista"],"91916":[32.873,-116.6027,"Descanso"],"91917":[32.6152,-116.7285,"Dulzura"],"91932":[32.5783,-117.1148,"Imperial Beach"],"91934":[32.6249,-116.1952,"Jacumba"],"91935":[32.7163,-116.8323,"Jamul"],"91941":[32.7604,-117.0115,"La Mesa"],"91942":[32.7835,-117.0189,"La Mesa"],"91945":[32.7332,-117.0326,"Lemon Grove"],"91950":[32.6749,-117.0897,"National City"],"91962":[32.835,-116.5127,"Pine Valley"],"91963":[32.6205,-116.6037,"Potrero"],"91977":[32.724,-116.9976,"Spring Valley"],"91978":[32.7329,-116.9596,"Spring Valley"],"91980":[32.5889,-116.6192,"Tecate"],"92003":[33.294,-117.1897,"Bonsall"],"92004":[33.2386,-116.3514,"Borrego Springs"],"92007":[33.023,-117.2745,"Cardiff By The Sea"],"92008":[33.1602,-117.325,"Carlsbad"],"92009":[33.0954,-117.2619,"Carlsbad"],"92010":[33.1639,-117.3009,"Carlsbad"],"92011":[33.1072,-117.2943,"Carlsbad"],"92014":[32.9665,-117.249,"Del Mar"],"92019":[32.7777,-116.9191,"El Cajon"],"92020":[32.7928,-116.9665,"El Cajon"],"92021":[32.8178,-116.9223,"El Cajon"],"92024":[33.0535,-117.2689,"Encinitas"],"92025":[33.1101,-117.07,"Escondido"],"92026":[33.1605,-117.0978,"Escondido"],"92027":[33.1388,-117.052,"Escondido"],"92028":[33.369,-117.229,"Fallbrook"],"92029":[33.0895,-117.1128,"Escondido"],"92036":[33.0534,-116.5658,"Julian"],"92037":[32.8455,-117.2521,"La Jolla"],"92040":[32.8562,-116.9201,"Lakeside"],"92054":[33.2072,-117.3573,"Oceanside"],"92056":[33.1968,-117.2831,"Oceanside"],"92057":[33.2407,-117.3025,"Oceanside"],"92058":[33.1959,-117.3795,"Oceanside"],"92059":[33.3777,-117.0717,"Pala"],"92061":[33.3063,-116.9596,"Pauma Valley"],"92064":[32.9756,-117.0402,"Poway"],"92065":[33.0293,-116.8535,"Ramona"],"92066":[33.21,-116.5167,"Ranchita"],"92069":[33.1444,-117.1697,"San Marcos"],"92070":[33.1476,-116.6963,"Santa Ysabel"],"92071":[32.8486,-116.9862,"Santee"],"92075":[32.9937,-117.2598,"Solana Beach"],"92078":[33.1193,-117.185,"San Marcos"],"92081":[33.1644,-117.2403,"Vista"],"92082":[33.249,-117.0122,"Valley Center"],"92083":[33.1978,-117.2482,"Vista"],"92084":[33.2131,-117.2243,"Vista"],"92086":[33.3096,-116.6527,"Warner Springs"],"92091":[32.9623,-117.0462,"Rancho Santa Fe"],"92101":[32.7185,-117.1593,"San Diego"],"92102":[32.7139,-117.1219,"San Diego"],"92103":[32.7466,-117.1636,"San Diego"],"92104":[32.7454,-117.1272,"San Diego"],"92105":[32.7423,-117.0947,"San Diego"],"92106":[32.7272,-117.2268,"San Diego"],"92107":[32.7425,-117.2433,"San Diego"],"92108":[32.7783,-117.1335,"San Diego"],"92109":[32.7969,-117.2405,"San Diego"],"92110":[32.7635,-117.2028,"San Diego"],"92111":[32.7972,-117.1708,"San Diego"],"92113":[32.697,-117.1153,"San Diego"],"92114":[32.7059,-117.0524,"San Diego"],"92115":[32.7607,-117.0721,"San Diego"],"92116":[32.7624,-117.1242,"San Diego"],"92117":[32.8239,-117.1965,"San Diego"],"92118":[32.6807,-117.1698,"Coronado"],"92119":[32.8036,-117.0261,"San Diego"],"92120":[32.7958,-117.0707,"San Diego"],"92121":[32.8919,-117.2035,"San Diego"],"92122":[32.8577,-117.2115,"San Diego"],"92123":[32.7973,-117.1392,"San Diego"],"92124":[32.8201,-117.0986,"San Diego"],"92126":[32.9161,-117.1402,"San Diego"],"92127":[33.0279,-117.0856,"San Diego"],"92128":[33.0067,-117.069,"San Diego"],"92129":[32.9652,-117.1213,"San Diego"],"92130":[32.9555,-117.2252,"San Diego"],"92131":[32.9123,-117.0898,"San Diego"],"92133":[32.72,-117.21,"San Diego"],"92139":[32.6806,-117.0474,"San Diego"],"92154":[32.5753,-117.0707,"San Diego"],"92173":[32.5626,-117.043,"San Ysidro"],"92194":[32.8,-117.13,"San Diego"],"92199":[32.7516,-117.1918,"San Diego"],"92201":[33.7207,-116.2168,"Indio"],"92203":[33.7532,-116.2676,"Indio"],"92210":[33.7163,-116.3381,"Indian Wells"],"92211":[33.7644,-116.3398,"Palm Desert"],"92220":[33.9282,-116.8899,"Banning"],"92223":[33.9171,-117.0001,"Beaumont"],"92227":[32.9792,-115.5296,"Brawley"],"92230":[33.9086,-116.7739,"Cabazon"],"92231":[32.6832,-115.5028,"Calexico"],"92233":[33.167,-115.5114,"Calipatria"],"92234":[33.8098,-116.4665,"Cathedral City"],"92236":[33.675,-116.1772,"Coachella"],"92240":[33.9531,-116.5219,"Desert Hot Springs"],"92241":[33.8763,-116.354,"Desert Hot Springs"],"92243":[32.7893,-115.5665,"El Centro"],"92249":[32.7218,-115.4383,"Heber"],"92250":[32.8104,-115.3775,"Holtville"],"92251":[32.847,-115.573,"Imperial"],"92252":[34.1502,-116.3038,"Joshua Tree"],"92253":[33.6685,-116.3081,"La Quinta"],"92254":[33.545,-116.0187,"Mecca"],"92256":[34.0606,-116.5656,"Morongo Valley"],"92257":[33.3784,-115.6965,"Niland"],"92260":[33.7225,-116.377,"Palm Desert"],"92262":[33.8414,-116.5347,"Palm Springs"],"92264":[33.8018,-116.517,"Palm Springs"],"92270":[33.7643,-116.4225,"Rancho Mirage"],"92274":[33.5578,-116.1572,"Thermal"],"92276":[33.8082,-116.3713,"Thousand Palms"],"92277":[34.1455,-116.0601,"Twentynine Palms"],"92282":[33.989,-116.6566,"Whitewater"],"92283":[33.0549,-115.0698,"Winterhaven"],"92284":[34.1559,-116.4313,"Yucca Valley"],"92285":[34.3103,-116.5241,"Landers"],"92292":[33.83,-116.54,"Palm Springs"],"92301":[34.5841,-117.4242,"Adelanto"],"92305":[34.1531,-116.9485,"Angelus Oaks"],"92307":[34.5291,-117.2132,"Apple Valley"],"92308":[34.4698,-117.1927,"Apple Valley"],"92311":[34.8914,-117.0387,"Barstow"],"92313":[34.031,-117.3129,"Grand Terrace"],"92314":[34.261,-116.8131,"Big Bear City"],"92315":[34.235,-116.9053,"Big Bear Lake"],"92316":[34.0662,-117.3993,"Bloomington"],"92318":[34.0483,-117.2309,"Bryn Mawr"],"92320":[33.9946,-117.043,"Calimesa"],"92324":[34.0315,-117.2874,"Colton"],"92327":[34.8668,-116.8876,"Daggett"],"92332":[34.5881,-115.5771,"Essex"],"92335":[34.0794,-117.4551,"Fontana"],"92336":[34.1173,-117.4378,"Fontana"],"92337":[34.0498,-117.4706,"Fontana"],"92338":[34.7211,-116.16,"Ludlow"],"92339":[34.0937,-116.9362,"Forest Falls"],"92342":[34.7499,-117.3367,"Helendale"],"92344":[34.4239,-117.4075,"Hesperia"],"92345":[34.4222,-117.3025,"Hesperia"],"92346":[34.1283,-117.2087,"Highland"],"92354":[34.0528,-117.2513,"Loma Linda"],"92356":[34.447,-116.9189,"Lucerne Valley"],"92358":[34.2558,-117.5186,"Lytle Creek"],"92359":[34.0774,-117.1126,"Mentone"],"92365":[34.885,-116.7464,"Newberry Springs"],"92368":[34.6178,-117.3327,"Oro Grande"],"92371":[34.4449,-117.5196,"Phelan"],"92372":[34.4429,-117.6403,"Pinon Hills"],"92373":[34.0397,-117.1804,"Redlands"],"92374":[34.065,-117.1672,"Redlands"],"92376":[34.1132,-117.3771,"Rialto"],"92377":[34.1561,-117.4042,"Rialto"],"92392":[34.4802,-117.4082,"Victorville"],"92394":[34.5563,-117.3528,"Victorville"],"92395":[34.5016,-117.2944,"Victorville"],"92397":[34.3628,-117.6249,"Wrightwood"],"92399":[34.0282,-117.0489,"Yucaipa"],"92401":[34.1105,-117.2898,"San Bernardino"],"92403":[34.1083,-117.2898,"San Bernardino"],"92404":[34.1426,-117.2606,"San Bernardino"],"92405":[34.1446,-117.3013,"San Bernardino"],"92407":[34.2166,-117.3908,"San Bernardino"],"92408":[34.0831,-117.2711,"San Bernardino"],"92410":[34.1069,-117.2975,"San Bernardino"],"92411":[34.1214,-117.3172,"San Bernardino"],"92501":[33.9924,-117.3694,"Riverside"],"92503":[33.9208,-117.4589,"Riverside"],"92504":[33.9315,-117.4119,"Riverside"],"92505":[33.9228,-117.4867,"Riverside"],"92506":[33.9455,-117.3757,"Riverside"],"92507":[33.9761,-117.3389,"Riverside"],"92508":[33.8897,-117.3043,"Riverside"],"92509":[34.0033,-117.445,"Jurupa Valley"],"92518":[33.8844,-117.2787,"March Air Reserve Base"],"92530":[33.6598,-117.3485,"Lake Elsinore"],"92532":[33.6927,-117.303,"Lake Elsinore"],"92536":[33.4473,-116.7997,"Aguanga"],"92539":[33.5688,-116.7135,"Anza"],"92543":[33.7416,-116.973,"Hemet"],"92544":[33.739,-116.9243,"Hemet"],"92545":[33.7399,-117.0151,"Hemet"],"92548":[33.7453,-117.1118,"Homeland"],"92551":[33.8814,-117.2261,"Moreno Valley"],"92553":[33.9157,-117.2351,"Moreno Valley"],"92555":[33.9377,-117.1851,"Moreno Valley"],"92557":[33.9553,-117.2457,"Moreno Valley"],"92561":[33.7042,-116.7259,"Mountain Center"],"92562":[33.5631,-117.2738,"Murrieta"],"92563":[33.569,-117.1783,"Murrieta"],"92567":[33.8123,-117.1048,"Nuevo"],"92570":[33.7852,-117.3166,"Perris"],"92571":[33.811,-117.218,"Perris"],"92582":[33.7883,-116.9819,"San Jacinto"],"92583":[33.7967,-116.9324,"San Jacinto"],"92584":[33.6647,-117.1743,"Menifee"],"92585":[33.7467,-117.1721,"Menifee"],"92586":[33.7044,-117.1969,"Menifee"],"92587":[33.707,-117.245,"Menifee"],"92590":[33.4903,-117.1824,"Temecula"],"92591":[33.5217,-117.1286,"Temecula"],"92592":[33.4983,-117.0958,"Temecula"],"92595":[33.6021,-117.264,"Wildomar"],"92596":[33.6243,-117.0885,"Winchester"],"92602":[33.7419,-117.7467,"Irvine"],"92603":[33.6245,-117.794,"Irvine"],"92604":[33.6899,-117.7868,"Irvine"],"92606":[33.6951,-117.8224,"Irvine"],"92610":[33.6748,-117.6649,"Foothill Ranch"],"92612":[33.6607,-117.8264,"Irvine"],"92614":[33.6829,-117.8298,"Irvine"],"92617":[33.6425,-117.8417,"Irvine"],"92618":[33.7074,-117.7054,"Irvine"],"92620":[33.7009,-117.7564,"Irvine"],"92624":[33.46,-117.6632,"Capistrano Beach"],"92625":[33.6021,-117.8743,"Corona Del Mar"],"92626":[33.6801,-117.9085,"Costa Mesa"],"92627":[33.6483,-117.9155,"Costa Mesa"],"92629":[33.4743,-117.6964,"Dana Point"],"92630":[33.6437,-117.6868,"Lake Forest"],"92637":[33.6103,-117.7253,"Laguna Woods"],"92646":[33.6654,-117.9686,"Huntington Beach"],"92647":[33.721,-118.0033,"Huntington Beach"],"92648":[33.6773,-118.0051,"Huntington Beach"],"92649":[33.718,-118.0505,"Huntington Beach"],"92651":[33.5429,-117.7813,"Laguna Beach"],"92653":[33.5916,-117.6985,"Laguna Hills"],"92655":[33.7446,-117.984,"Midway City"],"92656":[33.5701,-117.7086,"Aliso Viejo"],"92657":[33.5943,-117.8334,"Newport Coast"],"92660":[33.6295,-117.8684,"Newport Beach"],"92661":[33.6045,-117.9021,"Newport Beach"],"92662":[33.6062,-117.8931,"Newport Beach"],"92663":[33.621,-117.9321,"Newport Beach"],"92672":[33.4361,-117.6231,"San Clemente"],"92673":[33.4615,-117.6375,"San Clemente"],"92675":[33.5085,-117.6565,"San Juan Capistrano"],"92676":[33.7451,-117.6153,"Silverado"],"92677":[33.5145,-117.7084,"Laguna Niguel"],"92679":[33.6625,-117.5903,"Trabuco Canyon"],"92683":[33.7524,-117.9939,"Westminster"],"92688":[33.6512,-117.5938,"Rancho Santa Margarita"],"92691":[33.6128,-117.6622,"Mission Viejo"],"92692":[33.6144,-117.6433,"Mission Viejo"],"92694":[33.5472,-117.6238,"Ladera Ranch"],"92701":[33.7523,-117.8541,"Santa Ana"],"92703":[33.7489,-117.9072,"Santa Ana"],"92704":[33.7249,-117.909,"Santa Ana"],"92705":[33.754,-117.7919,"Santa Ana"],"92706":[33.7691,-117.8855,"Santa Ana"],"92707":[33.7086,-117.8701,"Santa Ana"],"92708":[33.7102,-117.9503,"Fountain Valley"],"92780":[33.7364,-117.8229,"Tustin"],"92782":[33.7346,-117.7869,"Tustin"],"92799":[33.7205,-117.9098,"Santa Ana"],"92801":[33.8428,-117.9546,"Anaheim"],"92802":[33.8085,-117.9228,"Anaheim"],"92804":[33.8186,-117.9729,"Anaheim"],"92805":[33.8359,-117.9086,"Anaheim"],"92806":[33.8356,-117.8681,"Anaheim"],"92807":[33.8544,-117.7858,"Anaheim"],"92808":[33.8579,-117.7513,"Anaheim"],"92809":[33.8426,-117.9388,"Anaheim"],"92821":[33.9291,-117.8845,"Brea"],"92823":[33.923,-117.798,"Brea"],"92831":[33.8873,-117.8946,"Fullerton"],"92832":[33.868,-117.9265,"Fullerton"],"92833":[33.8766,-117.9551,"Fullerton"],"92835":[33.8994,-117.9063,"Fullerton"],"92840":[33.7869,-117.9273,"Garden Grove"],"92841":[33.7817,-117.9766,"Garden Grove"],"92843":[33.7671,-117.929,"Garden Grove"],"92844":[33.7661,-117.9738,"Garden Grove"],"92845":[33.7787,-118.0267,"Garden Grove"],"92860":[33.9247,-117.5517,"Norco"],"92861":[33.8205,-117.8104,"Villa Park"],"92862":[33.7915,-117.714,"Orange"],"92865":[33.8263,-117.8511,"Orange"],"92866":[33.7877,-117.8423,"Orange"],"92867":[33.811,-117.8493,"Orange"],"92868":[33.7875,-117.8776,"Orange"],"92869":[33.7868,-117.7934,"Orange"],"92870":[33.8744,-117.8543,"Placentia"],"92878":[33.8753,-117.5664,"Corona"],"92879":[33.8797,-117.5354,"Corona"],"92880":[33.9208,-117.6096,"Corona"],"92881":[33.8241,-117.5198,"Corona"],"92882":[33.8419,-117.6043,"Corona"],"92883":[33.7541,-117.474,"Corona"],"92886":[33.9058,-117.7865,"Yorba Linda"],"92887":[33.8841,-117.7304,"Yorba Linda"],"92899":[33.8373,-117.8712,"Anaheim"],"93012":[34.2218,-118.9866,"Camarillo"],"93015":[34.3992,-118.9182,"Fillmore"],"93021":[34.2784,-118.8771,"Moorpark"],"93063":[34.3046,-118.6844,"Simi Valley"],"93065":[34.2656,-118.7653,"Simi Valley"],"93093":[34.27,-118.71,"Simi Valley"],"93243":[34.8818,-118.8566,"Lebec"],"93510":[34.4835,-118.1959,"Acton"],"93532":[34.6847,-118.5442,"Lake Hughes"],"93534":[34.6909,-118.1491,"Lancaster"],"93535":[34.7131,-117.8783,"Lancaster"],"93536":[34.7471,-118.3687,"Lancaster"],"93543":[34.4891,-117.9708,"Littlerock"],"93544":[34.493,-117.7543,"Llano"],"93550":[34.4133,-118.0917,"Palmdale"],"93551":[34.6017,-118.231,"Palmdale"],"93552":[34.5715,-118.0231,"Palmdale"],"93553":[34.4225,-117.9055,"Pearblossom"],"93560":[34.8664,-118.3409,"Rosamond"],"93563":[34.3966,-117.7604,"Valyermo"],"93591":[34.6019,-117.8123,"Palmdale"],"92055":[33.3683,-117.414,"Camp Pendleton"]};
+const FORM_MAP = {"pos":{"name":[20,704,10],"rank":[272,704,10],"purpose":[354,704,8],"days":[560,704,10],"nec":[20,682,9],"edipi":[100,682,9],"tadloc":[354,682,8],"section":[20,662,9],"phone":[100,662,9],"poc":[354,662,8],"fund_other":[160,641,7],"depart":[356,637,10],"return":[438,637,10],"dob":[112,627,9],"gtcc":[122,614,9],"trans_other":[350,575,7],"cost_0_0":[18,363.5,7.6],"cost_0_1":[18,349.5,7.6],"cost_0_2":[18,335.5,7.6],"cost_0_3":[18,321.5,7.6],"cost_0_4":[18,307.5,7.6],"cost_0_5":[18,293.5,7.6],"cost_1_0":[138,363.5,7.6],"cost_1_1":[138,349.5,7.6],"cost_1_2":[138,335.5,7.6],"cost_1_3":[138,321.5,7.6],"cost_1_4":[138,307.5,7.6],"cost_1_5":[138,293.5,7.6],"cost_2_0":[252,363.5,7.6],"cost_2_1":[252,349.5,7.6],"cost_2_2":[252,335.5,7.6],"cost_2_3":[252,321.5,7.6],"cost_2_4":[252,307.5,7.6],"cost_2_5":[252,293.5,7.6],"cost_3_0":[366,363.5,7.6],"cost_3_1":[366,349.5,7.6],"cost_3_2":[366,335.5,7.6],"cost_3_3":[366,321.5,7.6],"cost_3_4":[366,307.5,7.6],"cost_3_5":[366,293.5,7.6],"cost_4_0":[482,363.5,7.6],"cost_4_1":[482,349.5,7.6],"cost_4_2":[482,335.5,7.6],"cost_4_3":[482,321.5,7.6],"cost_4_4":[482,307.5,7.6],"cost_4_5":[482,293.5,7.6],"trav_date":[460,244,8],"co_note":[397,227.5,6.4],"s1_note":[397,213.5,6.4],"s3_note":[397,199.5,6.4],"supply_note":[397,185.5,6.4],"xo_note":[397,171.5,6.4],"footer":[14,46,6.2]},"box":{"fund_bn":[23.2,642.6],"fund_other":[105.2,642.6],"dob":[23.2,628.6],"gtcc":[23.2,615.6],"pov_gov":[23.2,602.6],"rental":[23.2,589.6],"pov_own":[305.2,589.6],"govtrans":[23.2,576.6],"trans_other":[305.2,576.6],"q_gov":[23.2,543.6],"ex_yes":[355.2,543.6],"ex_no":[405.2,543.6],"q_hotel":[23.2,530.6],"q_site":[23.2,517.6],"park_yes":[355.2,517.6],"park_no":[405.2,517.6],"mess_avail":[23.2,491.6],"fee_yes":[355.2,491.6],"fee_no":[405.2,491.6],"mess_none":[23.2,478.6],"mess_part":[23.2,465.6],"i_mission":[23.2,436.6],"i_conf":[155.2,436.6],"i_train":[275.2,436.6],"i_other":[395.2,436.6],"co_appr":[191.2,229.6],"co_dis":[267.2,229.6],"s1_appr":[191.2,215.6],"s1_dis":[267.2,215.6],"s3_appr":[191.2,201.6],"s3_dis":[267.2,201.6],"supply_appr":[191.2,187.6],"supply_dis":[267.2,187.6],"xo_appr":[191.2,173.6],"xo_dis":[267.2,173.6],"dts_signed":[55.2,131.6],"dts_verified":[55.2,117.6],"dts_entered":[55.2,103.6]},"sig":{"Traveler Signature":[120,243,380,262],"Company Co Signature":[395,226,592,237],"S-1 Oic Signature":[395,212,592,223],"S-3 Ops Signature":[395,198,592,209],"Supply Officer Signature":[395,184,592,195],"Xo Signature":[395,170,592,181]}};
+// Shared fill routine: works in the browser (window.PDFLib) and in node (require('pdf-lib')).
+async function fillTadForm(PDFLib, templateBytes, MAP, d){
+  const {PDFDocument, StandardFonts, rgb} = PDFLib;
+  const doc = await PDFDocument.load(templateBytes);
+  const page = doc.getPages()[0];
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const blue = rgb(0.05, 0.15, 0.45);
+  const put = (key, text, opt={}) => {
+    if (text == null || text === "") return;
+    const p = MAP.pos[key]; if (!p) return;
+    const size = opt.size || p[2];
+    let t = String(text);
+    const maxW = opt.maxW;
+    const f = opt.bold ? bold : font;
+    if (maxW) { while (t.length > 1 && f.widthOfTextAtSize(t, size) > maxW) t = t.slice(0, -1); }
+    page.drawText(t, {x: p[0] + (opt.dx||0), y: p[1] + (opt.dy||0), size, font: f, color: opt.color || blue});
+  };
+  const mark = (key) => { const b = MAP.box[key]; if (!b) return;
+    page.drawText("X", {x: b[0] - 2.9, y: b[1] - 3.1, size: 9, font: bold, color: blue}); };
+  put("name", d.name, {maxW: 240}); put("rank", d.rank, {maxW: 76}); put("purpose", d.purpose, {maxW: 156});
+  put("days", d.days); put("nec", d.nec, {maxW: 74}); put("edipi", d.edipi, {maxW: 240});
+  put("tadloc", d.tadloc, {maxW: 238}); put("section", d.section, {maxW: 74}); put("phone", d.phone, {maxW: 240});
+  put("poc", d.poc, {maxW: 238}); put("depart", d.depart); put("return", d.ret);
+  if (d.dob) { mark("dob"); put("dob", d.dob); }
+  if (d.gtcc) { mark("gtcc"); put("gtcc", d.gtcc); }
+  for (const k of d.marks) mark(k);
+  for (const [k, t] of Object.entries(d.cost)) put(k, t, {maxW: 110});
+  for (const [k, t] of Object.entries(d.notes || {})) put(k, t, {maxW: 194, bold: true, color: rgb(0.05, 0.35, 0.15)});
+  if (d.footer) {
+    let y = MAP.pos.footer[1];
+    for (const line of d.footer) { page.drawText(line, {x: MAP.pos.footer[0], y, size: 6.2, font, color: rgb(0.25,0.25,0.25)}); y -= 8; }
+  }
+  return await doc.save();
+}
+
+
+// Rates: GSA FY2027 per diem, Los Angeles locality (Los Angeles / Orange / Ventura counties), Oct 2026 - Sep 2027.
+// POV: DoD CY2026 TDY car rate, effective 1 Jul 2026. First/last day M&IE at 75% (JTR 020310).
+const RATES = {lodging:199, mie:86, mieFirstLast:64.50, pov:0.76, fyStart:"2026-10-01", fyEnd:"2027-09-30"};
+const SITES = {
+  harbor:{label:"Harbor-UCLA Medical Center", short:"Harbor-UCLA", city:"Torrance, CA", addr:"1000 W Carson St, Torrance, CA 90502", poc:"Contact your Bn POC", cmdMiles:84.2, hubIdx:2},
+  uci:{label:"UC Irvine Medical Center", short:"UCI", city:"Orange, CA", addr:"101 The City Dr S, Orange, CA 92868", poc:"Contact your Bn POC", cmdMiles:60.4, hubIdx:3}
+};
+// Freeway hubs with measured road distance (m) to Harbor-UCLA and UCI. ZIP-to-hub leg uses straight line x 1.5.
+const HUBS = [
+  [33.2069,-117.372,123423.7,89302],[33.4936,-117.1477,137458.3,101174],[33.124,-117.0868,154716.3,120594.6],
+  [32.9036,-117.2253,159071.1,124949.5],[32.7185,-117.1593,182494.5,148372.8],[33.68,-117.2,124295.7,88011.3],
+  [33.427,-117.612,88116.7,53995],[33.3683,-117.414,118931.5,84809.8],[32.9161,-117.1402,168174.1,null]
+];
+const ROAD_K = 1.5;
+const $ = id => document.getElementById(id);
+let site = "harbor";
+let approvals = {co:null, s1:null, s3:null, su:null};
+let fromLink = false;
+
+function hav(a,b){const R=6371.0088,r=Math.PI/180;const dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r;
+  const x=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+function estMiles(zip, s){
+  if (zip === "92055") return {miles:SITES[s].cmdMiles, how:"battalion distance from Mainside (31JUL2026 brief)"};
+  const p = ZIPS[zip]; if (!p) return null;
+  const idx = SITES[s].hubIdx; let best = Infinity;
+  for (const h of HUBS){ if (h[idx]==null) continue; const d = hav(p,[h[0],h[1]])*ROAD_K*1000 + h[idx]; if (d<best) best=d; }
+  return {miles: Math.round(best/1609.344), how:"estimated from ZIP " + zip + " (" + p[2] + ")"};
+}
+function parseD(v){ if(!v) return null; const [y,m,d]=v.split("-").map(Number); return new Date(Date.UTC(y,m-1,d)); }
+const MON=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+function mil(dt){ return String(dt.getUTCDate()).padStart(2,"0")+MON[dt.getUTCMonth()]+String(dt.getUTCFullYear()).slice(2); }
+function fromYmd(t){ return new Date(Date.UTC(+t.slice(0,4), +t.slice(4,6)-1, +t.slice(6,8))); }
+const money = n => "$" + n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const plain = n => n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const num = v => { const n = parseFloat(String(v).replace(/[$,]/g,"")); return isFinite(n) && n>0 ? n : 0; };
+
+function compute(){
+  const S = SITES[site];
+  const s = parseD($("start").value), e = parseD($("end").value);
+  const days = (s && e && e>=s) ? Math.round((e-s)/86400000)+1 : 0;
+  const nights = Math.max(days-1,0), fullDays = Math.max(days-2,0), flDays = days>=2 ? 2 : days;
+  const zip = $("zip").value.trim();
+  const est = /^\d{5}$/.test(zip) ? estMiles(zip, site) : null;
+  const dts = num($("dtsmiles").value);
+  const oneWay = dts || (est ? est.miles : 0);
+  const rt = Math.round(oneWay*2*10)/10;
+  const lodging = nights*RATES.lodging, mieFL = flDays*RATES.mieFirstLast, mieFull = fullDays*RATES.mie;
+  const perDiem = mieFL + mieFull;
+  const mileage = Math.round(rt*RATES.pov*100)/100;
+  const parking = num($("parking").value), scrubs = num($("scrubs").value);
+  const other = mileage + parking + scrubs;
+  const total = lodging + perDiem + other;
+  const cmdRt = Math.round(S.cmdMiles*2*10)/10;
+  const template = lodging + perDiem + Math.round(cmdRt*RATES.pov*100)/100;
+  const diff = Math.round((total-template)*100)/100;
+  return {S,s,e,days,nights,fullDays,flDays,zip,est,dts,oneWay,rt,lodging,mieFL,mieFull,perDiem,mileage,parking,scrubs,other,total,template,cmdRt,diff};
+}
+
+const APPR = [["co","Company CO"],["s1","S-1 OIC"],["s3","S-3 Ops"],["su","Supply Officer"]];
+function render(){
+  const c = compute();
+  $("example").hidden = fromLink;
+  $("datesrc").textContent = fromLink ? "Dates come from the rotation schedule set by the CMO and the partner liaison. Change them only if your travel days differ." : "";
+  const mo = $("mileout");
+  if (c.dts) mo.textContent = "Using DTS mileage: " + c.dts + " mi one way";
+  else if (c.est) mo.textContent = c.est.miles + " mi one way, " + c.est.how;
+  else if (c.zip.length===5) mo.textContent = "ZIP not in the Southern California table. Enter DTS miles below.";
+  else mo.textContent = "Enter a ZIP to calculate mileage.";
+
+  const who = [$("rank").value.trim(), $("name").value.trim()].filter(Boolean).join(" ") || "—";
+  const kv = [
+    ["Traveler", who], ["TAD location", c.S.label], ["Address", c.S.addr],
+    ["Depart / return", c.days ? mil(c.s)+" – "+mil(c.e) : "—"],
+    ["Number of days", c.days ? c.days+" ("+c.nights+" nights)" : "—"],
+    ["TAD purpose", "Clinical sustainment rotation (training)"], ["Transportation", "POV, government convenience"],
+    ["Departing ZIP", c.zip || "—"]
+  ];
+  $("kv").innerHTML = "";
+  for (const [k,v] of kv){ const d=document.createElement("div"); const dt=document.createElement("dt"); dt.textContent=k; const dd=document.createElement("dd"); dd.textContent=v; d.append(dt,dd); $("kv").append(d); }
+
+  const lines = [
+    ["Lodging", c.nights+" nights × "+money(RATES.lodging), c.lodging],
+    ["Per diem, first and last day (75%)", c.flDays+" × "+money(RATES.mieFirstLast), c.mieFL],
+    ["Per diem, full days", c.fullDays+" × "+money(RATES.mie), c.mieFull],
+    ["POV mileage, round trip", c.rt+" mi × "+money(RATES.pov), c.mileage],
+  ];
+  if (c.parking) lines.push(["Parking", "entered by traveler", c.parking]);
+  if (c.scrubs) lines.push(["Scrubs (up to 2 sets)", "entered by traveler", c.scrubs]);
+  const tb = $("lines"); tb.innerHTML = "";
+  for (const [a,b,amt] of lines){ const tr=document.createElement("tr"); tr.innerHTML='<td></td><td class="basis"></td><td class="amt"></td>'; tr.children[0].textContent=a; tr.children[1].textContent=b; tr.children[2].textContent=money(amt); tb.append(tr); }
+  const tr=document.createElement("tr"); tr.className="total"; tr.innerHTML='<td>Total estimate</td><td></td><td class="amt"></td>'; tr.children[2].textContent=money(c.total); tb.append(tr);
+
+  const ch = $("check"); ch.innerHTML = "";
+  if (!c.days){ ch.className="check warn"; const b=document.createElement("b"); b.textContent="Enter your depart and return dates."; ch.append(b); }
+  else {
+    const within = Math.abs(c.diff) <= 15;
+    ch.className = "check " + (within ? "ok" : "warn");
+    const b=document.createElement("b"); b.textContent = within ? "Within $15 of the battalion template: no further review required (Bn SOP para 4)." : "More than $15 from the battalion template: requires approving-authority review (Bn SOP para 4).";
+    const sp=document.createElement("span"); sp.textContent = "Template for "+c.S.short+", "+c.days+" days: "+money(c.template)+" (mileage from Mainside, "+c.cmdRt+" mi round trip). Difference: "+(c.diff>=0?"+":"−")+money(Math.abs(c.diff))+".";
+    ch.append(b,sp);
+  }
+  const ap = $("appr"); ap.innerHTML = "";
+  const row = (who, cls, text) => { const li=document.createElement("li"); const w=document.createElement("span"); w.className="who"; w.textContent=who; const s=document.createElement("span"); s.className="chip "+cls; s.textContent=text; li.append(w,s); ap.append(li); };
+  for (const [k,label] of APPR){ const d = approvals[k]; row(label, d ? "ok" : "pend", d ? "Cohort approved (digital) "+mil(d) : "Pending cohort approval"); }
+  row("XO", "sign", "Signs on the form (digital or print)");
+
+  const notes = [
+    "Rates: GSA FY2027 per diem, Los Angeles locality (includes Orange County): lodging "+money(RATES.lodging)+", M&IE "+money(RATES.mie)+". POV "+money(RATES.pov)+"/mi (DoD CY2026, eff. 1 Jul 2026). First and last day M&IE at 75% (JTR 020310).",
+    "Lodging taxes are reimbursed from the hotel folio and are not included.",
+    "Vouchers are paid on official DTS mileage. Enter DTS miles above to match exactly.",
+  ];
+  if (!approvals.co || !approvals.s1 || !approvals.s3 || !approvals.su) notes.unshift("Approvals still pending print as blank lines. Re-open your rotation link after the cohort is approved to print them as approved.");
+  if (site==="harbor") notes.push("Harbor-UCLA: book the DoubleTree Carson only after your DTS authorization is approved. The hotel link expires 30 days before the stay.");
+  if (c.days && (c.s < parseD(RATES.fyStart) || c.e > parseD(RATES.fyEnd))) notes.unshift("These dates fall outside FY2027. Rates may differ; confirm in DTS.");
+  $("notes").innerHTML=""; for (const n of notes){ const li=document.createElement("li"); li.textContent=n; $("notes").append(li); }
+}
+
+function setSite(s){ site=s; for (const b of document.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.site===s)); render(); }
+for (const b of document.querySelectorAll(".seg button")) b.addEventListener("click", ()=>setSite(b.dataset.site));
+for (const id of ["start","end","rank","name","nec","section","phone","zip","dtsmiles","parking","scrubs"]) $(id).addEventListener("input", render);
+
+// Link from the rotation tracker: #harbor-20270103-20270112[-s1-20261115][-s3-20261116][-su-20261117]
+function fromHash(){
+  const h = (location.hash||"").slice(1);
+  const m = h.match(/^(harbor|uci)-(\d{8})-(\d{8})((?:-(?:co|s1|s3|su)-\d{8})*)$/);
+  if (!m) return false;
+  const iso = t => t.slice(0,4)+"-"+t.slice(4,6)+"-"+t.slice(6,8);
+  site = m[1]; $("start").value = iso(m[2]); $("end").value = iso(m[3]);
+  approvals = {co:null, s1:null, s3:null, su:null};
+  for (const a of (m[4]||"").matchAll(/-(co|s1|s3|su)-(\d{8})/g)) approvals[a[1]] = fromYmd(a[2]);
+  fromLink = true; return true;
+}
+if (!fromHash()){ $("start").value="2027-01-10"; $("end").value="2027-01-16"; }
+if (!$("zip").value) $("zip").value = "92055";
+window.addEventListener("hashchange", ()=>{ fromHash(); setSite(site); });
+setSite(site);
+
+function formData(){
+  const c = compute();
+  const cost = {
+    cost_0_3:"N/A (POV)",
+    cost_1_0: RATES.lodging+" X "+c.nights+" = "+plain(c.lodging), cost_1_3: plain(c.lodging),
+    cost_2_0: "1st/last: 2 X "+plain(RATES.mieFirstLast), cost_2_1: "Full: "+c.fullDays+" X "+plain(RATES.mie), cost_2_3: plain(c.perDiem),
+    cost_3_0: "POV "+c.rt+" mi X "+RATES.pov, cost_3_1: "= "+plain(c.mileage), cost_3_3: plain(c.other),
+    cost_4_3: plain(c.total)
+  };
+  if (c.parking) cost.cost_3_2 = "Parking: "+plain(c.parking);
+  if (c.scrubs) cost.cost_3_4 = "Scrubs: "+plain(c.scrubs);
+  const marks = ["fund_bn","pov_gov","q_hotel","mess_none","ex_no","park_no","fee_no","i_train"];
+  const notes = {};
+  const keyMap = {co:"co", s1:"s1", s3:"s3", su:"supply"};
+  for (const [k] of APPR){ if (approvals[k]){ marks.push(keyMap[k]+"_appr"); notes[keyMap[k]+"_note"] = "COHORT APPROVED (DIGITAL) "+mil(approvals[k]); } }
+  const footer = [
+    "Battalion template ("+c.S.short+", "+c.days+" days, mileage from Mainside "+c.cmdRt+" mi RT): $"+plain(c.template)+". Difference "+(c.diff>=0?"+":"-")+"$"+plain(Math.abs(c.diff))+". "+(Math.abs(c.diff)<=15?"Within $15: no further review (Bn SOP para 4).":"More than $15: approving-authority review (Bn SOP para 4)."),
+    "Rates: GSA FY2027 Los Angeles locality lodging $199, M&IE $86 (first/last day 75%, JTR 020310); POV $0.76/mi (DoD CY2026). Lodging taxes per folio, not included. Mileage "+(c.dts?"from DTS.":"estimated from ZIP "+(c.zip||"-")+".")
+  ];
+  return {c, d:{
+    name:$("name").value.trim(), rank:$("rank").value.trim(), purpose:"CLINICAL SUSTAINMENT - "+c.S.short.toUpperCase(),
+    days: c.days || "", nec:$("nec").value.trim(), edipi:$("edipi").value.trim(), tadloc: c.S.city+" ("+c.S.short+")",
+    section:$("section").value.trim(), phone:$("phone").value.trim(), poc:c.S.poc,
+    depart: c.days ? mil(c.s) : "", ret: c.days ? mil(c.e) : "",
+    dob:$("dob").value.trim(), gtcc:$("gtcc").value.trim(), marks, cost, notes, footer
+  }};
+}
+
+function sheetText(){
+  const {c, d} = formData(); const L = [];
+  L.push("1ST MEDICAL BATTALION REQUEST FOR TEMPORARY ADDITIONAL DUTY - COST ESTIMATE","");
+  L.push("Traveler: "+[d.rank,d.name].filter(Boolean).join(" "), "TAD purpose: "+d.purpose, "TAD location: "+c.S.label+", "+c.S.addr);
+  L.push("Depart: "+(d.depart||"-")+"  Return: "+(d.ret||"-")+"  Days: "+(d.days||"-"), "");
+  L.push("Lodging: "+c.nights+" x $"+plain(RATES.lodging)+" = $"+plain(c.lodging));
+  L.push("Per diem: 2 x $"+plain(RATES.mieFirstLast)+" + "+c.fullDays+" x $"+plain(RATES.mie)+" = $"+plain(c.perDiem));
+  L.push("Other fees: POV "+c.rt+" mi x $"+RATES.pov+" = $"+plain(c.mileage)+(c.parking?"; parking $"+plain(c.parking):"")+(c.scrubs?"; scrubs $"+plain(c.scrubs):""));
+  L.push("TOTAL: $"+plain(c.total), "", ...d.footer, "");
+  for (const [k,label] of APPR) L.push(label+": "+(approvals[k] ? "cohort approved (digital) "+mil(approvals[k]) : "pending"));
+  return L;
+}
+$("copy").addEventListener("click", async ()=>{
+  const t = sheetText().join("\n");
+  try { await navigator.clipboard.writeText(t); $("msg").textContent="Copied."; }
+  catch { $("msg").textContent="Copy is blocked here. Select the summary text and copy it manually."; }
+});
+
+$("save").addEventListener("click", async ()=>{
+  if (!window.PDFLib){ $("msg").textContent="The PDF library did not load. Check your connection, reload, and try again."; return; }
+  const {c, d} = formData();
+  if (!c.days){ $("msg").textContent="Enter your depart and return dates first."; return; }
+  $("msg").textContent = "Building the form...";
+  try {
+    const tpl = await fetch("tad-request-blank.pdf").then(r => { if(!r.ok) throw new Error("template"); return r.arrayBuffer(); });
+    const bytes = await fillTadForm(window.PDFLib, tpl, FORM_MAP, d);
+    const nm = (d.name||"Traveler").replace(/[^A-Za-z0-9 ,.-]/g,"").replace(/,/g,"");
+    const fname = "TAD Request - "+c.S.short+" "+d.depart+" - "+nm+".pdf";
+    const url = URL.createObjectURL(new Blob([bytes], {type:"application/pdf"}));
+    const a = document.createElement("a"); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 10000);
+    $("msg").textContent = "Saved. Sign as traveler, route to the XO for signature (digital or print), then attach it in DTS.";
+  } catch(err){
+    $("msg").textContent = (err && err.message==="template" ? "The blank form did not load. Reload the page and try again." : "PDF build failed. Use Copy as text, or try another browser.");
+  }
+});
+</script>
