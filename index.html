@@ -328,15 +328,24 @@ function setSite(s){ site=s; for (const b of document.querySelectorAll(".seg but
 for (const b of document.querySelectorAll(".seg button")) b.addEventListener("click", ()=>setSite(b.dataset.site));
 for (const id of ["start","end","rank","name","nec","section","phone","zip","dtsmiles","parking","scrubs"]) $(id).addEventListener("input", render);
 
-// Link from the rotation tracker: #harbor-20270103-20270112[-s1-20261115][-s3-20261116][-su-20261117]
+// Link from the rotation tracker: #harbor-20270103-20270112[-s1-20261115][-s3-20261116][-su-20261117][~LT%20Doe%2C%20Jane~Alpha]
+// The fragment never leaves the device, so the member's own "Rank Last, First" and company can ride along.
 function fromHash(){
   const h = (location.hash||"").slice(1);
-  const m = h.match(/^(harbor|uci)-(\d{8})-(\d{8})((?:-(?:co|s1|s3|su|xo)-\d{8})*)$/);
+  const m = h.match(/^(harbor|uci)-(\d{8})-(\d{8})((?:-(?:co|s1|s3|su|xo)-\d{8})*)(?:~([^~]*)~([^~]*))?$/);
   if (!m) return false;
   const iso = t => t.slice(0,4)+"-"+t.slice(4,6)+"-"+t.slice(6,8);
   site = m[1]; $("start").value = iso(m[2]); $("end").value = iso(m[3]);
   approvals = {co:null, s1:null, s3:null, su:null, xo:null};
   for (const a of (m[4]||"").matchAll(/-(co|s1|s3|su|xo)-(\d{8})/g)) approvals[a[1]] = fromYmd(a[2]);
+  const dec = s => { try { return decodeURIComponent(s||"").trim(); } catch { return ""; } };
+  const who = dec(m[5]), co = dec(m[6]);
+  if (who){
+    const sp = who.indexOf(" ");
+    if (sp > 0){ if (!$("rank").value) $("rank").value = who.slice(0, sp); if (!$("name").value) $("name").value = who.slice(sp+1); }
+    else if (!$("name").value) $("name").value = who;
+  }
+  if (co && !$("section").value) $("section").value = /^(Alpha|Bravo|Charlie)$/.test(co) ? co+" Co" : co;
   fromLink = true; return true;
 }
 if (!fromHash()){ $("start").value="2027-01-10"; $("end").value="2027-01-16"; }
